@@ -1,6 +1,6 @@
-from django.db import models
-from .boards.models import *
-from .columns.models import *
-from .tasks.models import *
-from .comments.models import *
+from .boards.models import Board, BoardMember
+from .tasks.models import Task
+# from .columns.models import Column
+# from .comments.models import Comment
+
 

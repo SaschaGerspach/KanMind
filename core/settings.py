@@ -41,10 +41,6 @@ INSTALLED_APPS = [
     'corsheaders',
     'user_auth_app',
     'kanban_app',
-    'kanban_app.boards',
-    'kanban_app.columns',
-    'kanban_app.tasks',
-    'kanban_app.comments',
     'rest_framework.authtoken'
 ]
 

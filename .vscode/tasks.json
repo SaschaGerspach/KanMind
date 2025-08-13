@@ -1,59 +1,63 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Runserver",
-            "type": "shell",
-            "command": "python",
-            "args": [
-                "manage.py",
-                "runserver"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Makemigrations",
-            "type": "shell",
-            "command": "python",
-            "args": [
-                "manage.py",
-                "makemigrations"
-            ],
-            "problemMatcher": []
-        },
-        {
-            "label": "Migrate",
-            "type": "shell",
-            "command": "python",
-            "args": [
-                "manage.py",
-                "migrate"
-            ],
-            "problemMatcher": []
-        },
-        {
-            "label": "Create Superuser",
-            "type": "shell",
-            "command": "python",
-            "args": [
-                "manage.py",
-                "createsuperuser"
-            ],
-            "problemMatcher": []
-        },
-        {
-            "label": "Shell",
-            "type": "shell",
-            "command": "python",
-            "args": [
-                "manage.py",
-                "shell"
-            ],
-            "problemMatcher": []
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Runserver",
+      "type": "shell",
+      "command": "${workspaceFolder}\\env\\Scripts\\python.exe",
+      "args": ["manage.py", "runserver"],
+      "options": { "cwd": "${workspaceFolder}" }
+    },
+    {
+      "label": "Makemigrations",
+      "type": "shell",
+      "command": "${workspaceFolder}\\env\\Scripts\\python.exe",
+      "args": ["manage.py", "makemigrations"],
+      "options": { "cwd": "${workspaceFolder}" }
+    },
+    {
+      "label": "Migrate",
+      "type": "shell",
+      "command": "${workspaceFolder}\\env\\Scripts\\python.exe",
+      "args": ["manage.py", "migrate"],
+      "options": { "cwd": "${workspaceFolder}" }
+    },
+    {
+      "label": "Create Superuser",
+      "type": "shell",
+      "command": "${workspaceFolder}\\env\\Scripts\\python.exe",
+      "args": ["manage.py", "createsuperuser"],
+      "options": { "cwd": "${workspaceFolder}" }
+    },
+    {
+      "label": "Shell",
+      "type": "shell",
+      "command": "${workspaceFolder}\\env\\Scripts\\python.exe",
+      "args": ["manage.py", "shell"],
+      "options": { "cwd": "${workspaceFolder}" }
+    },
+
+    // --- Hilfs-Tasks zum Prüfen ---
+    {
+      "label": "Which Python (venv?)",
+      "type": "shell",
+      "command": "${workspaceFolder}\\env\\Scripts\\python.exe",
+      "args": ["-c", "import sys; print(sys.executable)"],
+      "options": { "cwd": "${workspaceFolder}" }
+    },
+    {
+      "label": "Check Django Version",
+      "type": "shell",
+      "command": "${workspaceFolder}\\env\\Scripts\\python.exe",
+      "args": ["-c", "import django,sys; print('Django', django.get_version(), 'via', sys.executable)"],
+      "options": { "cwd": "${workspaceFolder}" }
+    },
+    {
+      "label": "pip install -r requirements.txt",
+      "type": "shell",
+      "command": "${workspaceFolder}\\env\\Scripts\\python.exe",
+      "args": ["-m", "pip", "install", "-r", "requirements.txt"],
+      "options": { "cwd": "${workspaceFolder}" }
+    }
+  ]
 }
