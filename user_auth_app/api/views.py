@@ -28,13 +28,7 @@ class RegistrationView(APIView):
 
 
 class LoginView(APIView):
-    """
-    Login per E-Mail + Passwort (DRF TokenAuth).
-    Request:
-      { "email": "...", "password": "..." }
-    Response (200):
-      { "token": "...", "fullname": "...", "email": "...", "user_id": ... }
-    """
+
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'login'

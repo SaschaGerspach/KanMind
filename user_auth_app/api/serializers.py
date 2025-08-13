@@ -46,7 +46,7 @@ class LoginSerializer(serializers.Serializer):
         try:
             user = User.objects.get(email__iexact=email)
         except User.DoesNotExist:
-            # absichtlich generische Meldung
+   
             raise serializers.ValidationError({'detail': 'Invalid credentials.'})
 
         if not user.check_password(password):
