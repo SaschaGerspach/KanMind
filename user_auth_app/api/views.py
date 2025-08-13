@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from .serializers import RegistrationSerializer, LoginSerializer
+from rest_framework.throttling import ScopedRateThrottle
 
 class RegistrationView(APIView):
     permission_classes = [AllowAny]
@@ -35,6 +36,8 @@ class LoginView(APIView):
       { "token": "...", "fullname": "...", "email": "...", "user_id": ... }
     """
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
 
     def post(self, request):
         email = request.data.get('email', '')
