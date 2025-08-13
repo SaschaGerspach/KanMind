@@ -1,0 +1,59 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Runserver",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "manage.py",
+                "runserver"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Makemigrations",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "manage.py",
+                "makemigrations"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Migrate",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "manage.py",
+                "migrate"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Create Superuser",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "manage.py",
+                "createsuperuser"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Shell",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "manage.py",
+                "shell"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}
