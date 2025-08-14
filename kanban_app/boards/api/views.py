@@ -1,12 +1,14 @@
 from django.db.models import Q, Count, F, Value
 from django.db.models.functions import Coalesce
-from rest_framework.generics import ListCreateAPIView
+from django.shortcuts import get_object_or_404
+from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 
 from ..models import Board
-from .serializers import BoardListSerializer, BoardCreateSerializer
+from .serializers import BoardListSerializer, BoardCreateSerializer, BoardDetailSerializer
 
 class BoardListCreateView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -58,3 +60,21 @@ class BoardListCreateView(ListCreateAPIView):
         )
         out = BoardListSerializer(annotated)
         return Response(out.data, status=status.HTTP_201_CREATED)
+    
+
+
+class BoardDetailView(RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = BoardDetailSerializer
+    lookup_url_kwarg = "board_id"
+
+    def get_object(self):
+        board_id = self.kwargs.get(self.lookup_url_kwarg)
+        board = get_object_or_404(Board.objects.select_related("owner").prefetch_related("members", "tasks"), pk=board_id)
+
+        user = self.request.user
+        # Zugriff: Owner ODER Mitglied
+        if not (board.owner_id == user.id or board.members.filter(pk=user.id).exists()):
+            raise PermissionDenied("You do not have access to this board.")
+
+        return board
