@@ -1,8 +1,6 @@
 from django.urls import path
-from .views import BoardListView
+from .views import BoardListCreateView
 
 urlpatterns = [
-    path('', BoardListView.as_view(), name='boards-list'),
-    
-    
+    path('', BoardListCreateView.as_view(), name='boards-list-create'),
 ]
