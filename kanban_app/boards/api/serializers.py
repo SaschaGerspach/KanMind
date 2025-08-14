@@ -3,6 +3,10 @@ from ..models import Board, BoardMember
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from ...tasks.models import Task
+from typing import TYPE_CHECKING, Any, Dict
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractUser as DjangoUser
 
 User = get_user_model()
 
@@ -137,3 +141,54 @@ class BoardDetailSerializer(serializers.ModelSerializer):
     def get_tasks(self, obj):
         qs = obj.tasks.all().only("id", "title", "status", "priority")  # vorhandene Felder
         return TaskLiteSerializer(qs, many=True).data
+    
+
+class BoardPatchSerializer(serializers.Serializer):
+    """
+    Eingabe für PATCH /api/boards/{board_id}/
+    - 'title' optional
+    - 'members' optional (Liste von User-IDs, ersetzt die bisherigen Mitglieder)
+    """
+    title = serializers.CharField(max_length=200, required=False, allow_blank=False)
+    members = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        allow_empty=True
+    )
+
+    def validate_members(self, value):
+        # deduplizieren & Existenz prüfen
+        ids = list(dict.fromkeys(value))
+        existing = set(User.objects.filter(id__in=ids).values_list("id", flat=True))
+        missing = [i for i in ids if i not in existing]
+        if missing:
+            raise serializers.ValidationError(f"Unknown user id(s): {missing}")
+        return ids
+
+
+class BoardUpdateResponseSerializer(serializers.ModelSerializer):
+    """
+    Antwort für PATCH: owner_data + members_data (ohne Owner) im gewünschten Format.
+    """
+    owner_data = serializers.SerializerMethodField()
+    members_data = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Board
+        fields = ["id", "title", "owner_data", "members_data"]
+
+    def _fullname(self, u: "DjangoUser") -> str:
+        name = f"{u.first_name} {u.last_name}".strip()
+        return name or u.username
+
+    def _user_obj(self, u: "DjangoUser") -> Dict[str, Any]:
+        return {"id": u.id, "email": u.email, "fullname": self._fullname(u)}
+
+    def get_owner_data(self, obj):
+        return self._user_obj(obj.owner)
+
+    def get_members_data(self, obj):
+        members = obj.members.exclude(pk=obj.owner_id).only(
+            "id", "email", "first_name", "last_name", "username"
+        )
+        return [self._user_obj(u) for u in members]

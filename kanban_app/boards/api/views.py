@@ -1,14 +1,14 @@
 from django.db.models import Q, Count, F, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
-from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
+from rest_framework.generics import ListCreateAPIView, RetrieveAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 
 from ..models import Board
-from .serializers import BoardListSerializer, BoardCreateSerializer, BoardDetailSerializer
+from .serializers import BoardListSerializer, BoardCreateSerializer, BoardDetailSerializer, BoardUpdateResponseSerializer, BoardPatchSerializer
 
 class BoardListCreateView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -63,18 +63,52 @@ class BoardListCreateView(ListCreateAPIView):
     
 
 
-class BoardDetailView(RetrieveAPIView):
+class BoardDetailUpdateView(RetrieveUpdateAPIView):
+    """
+    GET  /api/boards/{board_id}/   -> BoardDetailSerializer (wie zuvor)
+    PATCH /api/boards/{board_id}/  -> BoardPatchSerializer (Input) + BoardUpdateResponseSerializer (Output)
+    Zugriffsregel: Owner ODER Member, sonst 403.
+    """
     permission_classes = [IsAuthenticated]
-    serializer_class = BoardDetailSerializer
     lookup_url_kwarg = "board_id"
 
     def get_object(self):
         board_id = self.kwargs.get(self.lookup_url_kwarg)
-        board = get_object_or_404(Board.objects.select_related("owner").prefetch_related("members", "tasks"), pk=board_id)
-
+        board = get_object_or_404(
+            Board.objects.select_related("owner").prefetch_related("members", "tasks"),
+            pk=board_id
+        )
         user = self.request.user
-        # Zugriff: Owner ODER Mitglied
         if not (board.owner_id == user.id or board.members.filter(pk=user.id).exists()):
             raise PermissionDenied("You do not have access to this board.")
-
         return board
+
+    # GET -> wie gehabt
+    def get_serializer_class(self):
+        if self.request.method == "PATCH":
+            return BoardPatchSerializer
+        return BoardDetailSerializer
+
+    # PATCH -> Members ersetzen + optional Titel setzen, dann Response im PATCH-Format
+    def patch(self, request, *args, **kwargs):
+        board = self.get_object()
+
+        in_serializer = BoardPatchSerializer(data=request.data, context={"request": request})
+        in_serializer.is_valid(raise_exception=True)
+        data = in_serializer.validated_data
+
+        # Titel aktualisieren (wenn gesendet)
+        if "title" in data:
+            board.title = data["title"]
+            board.save(update_fields=["title"])
+
+        # Mitglieder ersetzen (wenn gesendet)
+        if "members" in data:
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            users = list(User.objects.filter(id__in=data["members"]))
+            # kompletter Ersatz der M2M-Mitglieder
+            board.members.set(users)
+
+        out = BoardUpdateResponseSerializer(board)
+        return Response(out.data, status=status.HTTP_200_OK)
