@@ -2,6 +2,7 @@ from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 
+
 from ..models import Task
 from ...boards.models import Board
 
@@ -26,3 +27,11 @@ class TaskCreateView(generics.CreateAPIView):
             raise PermissionDenied("You must be a member of this board to create a task.")
 
         serializer.save()
+
+class AssignedToMeTaskListView(generics.ListAPIView):
+    serializer_class = TaskCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Nur Tasks zurückgeben, die dem eingeloggten User zugewiesen sind
+        return Task.objects.filter(assignee=self.request.user)
