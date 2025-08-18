@@ -2,7 +2,6 @@ from rest_framework import serializers
 from ..models import Board, BoardMember
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
-from ...tasks.models import Task
 from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
@@ -84,44 +83,37 @@ class UserLiteSerializer(serializers.ModelSerializer):
         return name.strip() or obj.username
 
 
-class TaskLiteSerializer(serializers.ModelSerializer):
-    # Felder, die (noch) nicht im Model sind, liefern wir neutral
+class TaskLiteSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    title = serializers.CharField()
     description = serializers.SerializerMethodField()
-    assignee   = serializers.SerializerMethodField()
-    reviewer   = serializers.SerializerMethodField()
-    due_date   = serializers.SerializerMethodField()
+    status = serializers.CharField()
+    priority = serializers.CharField()
+    assignee = serializers.SerializerMethodField()
+    reviewer = serializers.SerializerMethodField()
+    due_date = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Task
-        fields = [
-            "id", "title",
-            "description",
-            "status", "priority",
-            "assignee", "reviewer",
-            "due_date",
-            "comments_count",
-        ]
 
     def get_description(self, obj):
         return getattr(obj, "description", None)
 
-    def _user_or_none(self, u):
-        return UserLiteSerializer(u).data if u else None
+    def _user_obj(self, u):
+        if not u:
+            return None
+        name = f"{u.first_name or ''} {u.last_name or ''}".strip() or u.username
+        return {"id": u.id, "email": u.email, "fullname": name}
 
     def get_assignee(self, obj):
-        return self._user_or_none(getattr(obj, "assignee", None))
+        return self._user_obj(getattr(obj, "assignee", None))
 
     def get_reviewer(self, obj):
-        return self._user_or_none(getattr(obj, "reviewer", None))
+        return self._user_obj(getattr(obj, "reviewer", None))
 
     def get_due_date(self, obj):
-        # Erwartetes ISO-Format oder None
-        due = getattr(obj, "due_date", None)
-        return due if due is None else due.isoformat()
+        d = getattr(obj, "due_date", None)
+        return d.isoformat() if d else None
 
     def get_comments_count(self, obj):
-        # 0, bis Comments-Relation existiert (z. B. obj.comments.count())
         return getattr(obj, "comments_count", 0)
 
 
