@@ -2,10 +2,15 @@ from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.authtoken.models import Token
 from .serializers import RegistrationSerializer, LoginSerializer
 from rest_framework.throttling import ScopedRateThrottle
+from django.contrib.auth import get_user_model
+from django.db.models import Q
+from rest_framework.permissions import IsAuthenticated
+
+User = get_user_model()
 
 class RegistrationView(APIView):
     permission_classes = [AllowAny]
@@ -72,3 +77,48 @@ class LoginView(APIView):
             "email": user.email,
             "user_id": user.id
         }, status=status.HTTP_200_OK)
+    
+
+
+class EmailCheckView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # 1) E-Mail aus Query
+        raw_email = request.query_params.get("email", "")
+        email = raw_email.strip()
+
+        # 2) Validierung: vorhanden + Format
+        if not email:
+            return Response(
+                {"detail": "Query parameter 'email' is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Nutzen DRF-Validator für E-Mail-Format
+        try:
+            serializers.EmailField().run_validation(email)
+        except serializers.ValidationError:
+            return Response(
+                {"detail": "Invalid email format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 3) Lookup (case-insensitive)
+        user = User.objects.filter(email__iexact=email).only(
+            "id", "email", "first_name", "last_name", "username"
+        ).first()
+
+        if not user:
+            return Response(
+                {"detail": "Email not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # 4) fullname bauen
+        fullname = f"{user.first_name} {user.last_name}".strip() or user.username
+
+        return Response(
+            {"id": user.id, "email": user.email, "fullname": fullname},
+            status=status.HTTP_200_OK,
+        )
