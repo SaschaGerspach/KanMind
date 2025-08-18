@@ -35,3 +35,11 @@ class AssignedToMeTaskListView(generics.ListAPIView):
     def get_queryset(self):
         # Nur Tasks zurückgeben, die dem eingeloggten User zugewiesen sind
         return Task.objects.filter(assignee=self.request.user)
+    
+class ReviewingTaskListView(generics.ListAPIView):
+    serializer_class = TaskCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Task.objects.filter(reviewer=user)
