@@ -46,3 +46,26 @@ class TaskCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Reviewer must be a member of the board.")
 
         return attrs
+    
+
+class TaskUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ['title', 'description', 'status', 'priority', 'assignee', 'reviewer', 'due_date']
+
+    def validate(self, data):
+        task = self.instance
+
+        # Board darf nicht verändert werden
+        if 'board' in data and data['board'] != task.board:
+            raise serializers.ValidationError("The board ID cannot be changed.")
+
+        # Assignee muss Mitglied des Boards sein
+        if 'assignee' in data and data['assignee'] and not task.board.members.filter(id=data['assignee'].id).exists():
+            raise serializers.ValidationError("The assignee must be a member of the board.")
+
+        # Reviewer muss Mitglied des Boards sein
+        if 'reviewer' in data and data['reviewer'] and not task.board.members.filter(id=data['reviewer'].id).exists():
+            raise serializers.ValidationError("The reviewer must be a member of the board.")
+
+        return data

@@ -1,12 +1,13 @@
-from rest_framework import generics
+from rest_framework import generics, permissions
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404
 
 
 from ..models import Task
 from ...boards.models import Board
 
-from .serializers import TaskCreateSerializer
+from .serializers import TaskCreateSerializer, TaskUpdateSerializer
 
 
 class TaskCreateView(generics.CreateAPIView):
@@ -43,3 +44,18 @@ class ReviewingTaskListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return Task.objects.filter(reviewer=user)
+    
+class TaskUpdateView(generics.UpdateAPIView):
+    queryset = Task.objects.all()
+    serializer_class = TaskUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        task = get_object_or_404(Task, id=self.kwargs['task_id'])
+        user = self.request.user
+
+        # prüfen, ob User Mitglied des Boards ist
+        if not task.board.members.filter(id=user.id).exists():
+            raise PermissionDenied("You are not a member of this board and cannot update this task.")
+
+        return task
