@@ -28,5 +28,12 @@ class Task(models.Model):
     due_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    created_by = models.ForeignKey(
+        User,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_tasks'
+    )
+
     def __str__(self):
         return self.title
