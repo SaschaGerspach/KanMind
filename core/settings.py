@@ -141,7 +141,9 @@ REST_FRAMEWORK = {
         'anon': '1000/day',
         'user': '5000/day',
         'login': '10/min',   
-    }
+    },
+    "DATETIME_FORMAT": "%Y-%m-%dT%H:%M:%SZ"
+
 }
 
 # from datetime import timedelta
