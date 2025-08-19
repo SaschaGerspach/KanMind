@@ -4,8 +4,24 @@ from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 
 from kanban_app.tasks.models import Task
-from kanban_app.comments.models import Comment
-from .serializers import CommentCreateSerializer
+from ..models import Comment
+from .serializers import CommentCreateSerializer, CommentSerializer
+
+class CommentListView(generics.ListAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        task_id = self.kwargs['task_id']
+        task = get_object_or_404(Task, id=task_id)
+
+        user = self.request.user
+        # prüfen, ob User Mitglied des Boards ist
+        if not task.board.members.filter(id=user.id).exists():
+            raise PermissionDenied("You are not a member of this board.")
+
+        # Kommentare zum Task zurückgeben, nach Erstellungsdatum sortiert
+        return Comment.objects.filter(task=task).order_by("created_at")
 
 class CommentCreateView(generics.CreateAPIView):
     """
