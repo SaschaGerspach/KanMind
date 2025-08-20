@@ -4,6 +4,10 @@ from kanban_app.comments.models import Comment
 
 
 class CommentSerializer(serializers.ModelSerializer):
+    """
+    Serializer for reading comment data.
+    Includes the author's full name as a read-only field.
+    """
     author = serializers.CharField(source="author.full_name", read_only=True)
 
     class Meta:
@@ -12,6 +16,11 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class CommentCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating new comments.
+    - Author is automatically derived from the request user (read-only here).
+    - 'id' and 'created_at' are also read-only.
+    """
     author = serializers.SerializerMethodField()
 
     class Meta:
@@ -20,6 +29,10 @@ class CommentCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "author"]
 
     def get_author(self, obj):
+        """
+        Returns the author's full name (first + last).
+        If no full name exists, fallback to username.
+        """
         u = obj.author
         full = f"{(u.first_name or '').strip()} {(u.last_name or '').strip()}".strip()
         return full or u.username

@@ -10,6 +10,10 @@ from .serializers import TaskCreateSerializer, TaskUpdateSerializer
 
 
 class TaskCreateView(generics.CreateAPIView):
+    """
+    API view for creating a new task within a board.
+    Only board members or the board owner can create tasks.
+    """
     queryset = Task.objects.all()
     serializer_class = TaskCreateSerializer
     permission_classes = [IsAuthenticated]
@@ -18,18 +22,20 @@ class TaskCreateView(generics.CreateAPIView):
         board = serializer.validated_data["board"]
         user = self.request.user
 
-        if not (
-            board.owner_id == user.id
-            or board.members.filter(pk=user.id).exists()
-        ):
+        # Check if the user is either the board owner or a board member
+        if not (board.owner_id == user.id or board.members.filter(pk=user.id).exists()):
             raise PermissionDenied(
                 "You must be a member of this board to create a task."
             )
 
+        # Save the task with the current user as creator
         serializer.save(board=board, created_by=user)
 
 
 class AssignedToMeTaskListView(generics.ListAPIView):
+    """
+    API view that lists all tasks assigned to the current user.
+    """
     serializer_class = TaskCreateSerializer
     permission_classes = [IsAuthenticated]
 
@@ -38,6 +44,9 @@ class AssignedToMeTaskListView(generics.ListAPIView):
 
 
 class ReviewingTaskListView(generics.ListAPIView):
+    """
+    API view that lists all tasks where the current user is set as reviewer.
+    """
     serializer_class = TaskCreateSerializer
     permission_classes = [IsAuthenticated]
 
@@ -47,16 +56,25 @@ class ReviewingTaskListView(generics.ListAPIView):
 
 
 class TaskDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
+    """
+    API view for retrieving, updating (PATCH), or deleting a single task.
+    Access is restricted to board members or the board owner.
+    """
     permission_classes = [permissions.IsAuthenticated]
     lookup_url_kwarg = "task_id"
     queryset = Task.objects.all()
 
     def get_serializer_class(self):
+        # Use a different serializer when updating tasks
         if self.request.method.upper() == "PATCH":
             return TaskUpdateSerializer
         return TaskCreateSerializer
 
     def get_object(self):
+        """
+        Fetch the task and ensure the requesting user has access
+        (must be board owner or board member).
+        """
         task = get_object_or_404(Task, id=self.kwargs["task_id"])
         user = self.request.user
         board = task.board
@@ -71,6 +89,11 @@ class TaskDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
         return task
 
     def perform_destroy(self, instance: Task):
+        """
+        Delete a task only if the requesting user is either:
+        - the creator of the task, or
+        - the owner of the board.
+        """
         user = self.request.user
         board_owner = instance.board.owner
         if instance.created_by != user and board_owner != user:

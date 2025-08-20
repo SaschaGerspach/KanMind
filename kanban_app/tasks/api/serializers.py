@@ -7,6 +7,12 @@ User = get_user_model()
 
 
 class TaskCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating tasks.
+    Includes validation for status, priority, and board membership
+    of the assignee and reviewer.
+    """
+
     class Meta:
         model = Task
         fields = [
@@ -22,18 +28,29 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_status(self, value):
+        """
+        Ensure that the provided status is one of the allowed values.
+        """
         allowed = ["to-do", "in-progress", "review", "done"]
         if value not in allowed:
             raise serializers.ValidationError("Invalid status value.")
         return value
 
     def validate_priority(self, value):
+        """
+        Ensure that the provided priority is one of the allowed values.
+        """
         allowed = ["low", "medium", "high"]
         if value not in allowed:
             raise serializers.ValidationError("Invalid priority value.")
         return value
 
     def validate(self, attrs):
+        """
+        Additional validation:
+        - Assignee must be a board member.
+        - Reviewer must be a board member.
+        """
         board = attrs.get("board")
         assignee = attrs.get("assignee")
         reviewer = attrs.get("reviewer")
@@ -52,6 +69,12 @@ class TaskCreateSerializer(serializers.ModelSerializer):
 
 
 class TaskUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for updating tasks.
+    Prevents board reassignment and enforces that assignee/reviewer
+    must remain members of the same board.
+    """
+
     class Meta:
         model = Task
         fields = [
@@ -65,6 +88,12 @@ class TaskUpdateSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
+        """
+        Extra validation for updates:
+        - Board cannot be changed once set.
+        - Assignee must remain a board member.
+        - Reviewer must remain a board member.
+        """
         task = self.instance
 
         if "board" in data and data["board"] != task.board:

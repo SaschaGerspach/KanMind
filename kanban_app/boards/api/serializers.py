@@ -13,6 +13,10 @@ User = get_user_model()
 
 
 class BoardListSerializer(serializers.ModelSerializer):
+    """
+    Serializer for listing boards with aggregated counters.
+    """
+
     owner_id = serializers.IntegerField(read_only=True)
     member_count = serializers.IntegerField(read_only=True, default=0, required=False)
     ticket_count = serializers.IntegerField(read_only=True, default=0, required=False)
@@ -33,6 +37,10 @@ class BoardListSerializer(serializers.ModelSerializer):
 
 
 class BoardCreateSerializer(serializers.Serializer):
+    """
+    Serializer for creating a new board with an optional list of members.
+    """
+
     title = serializers.CharField(max_length=200)
     members = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
@@ -41,7 +49,10 @@ class BoardCreateSerializer(serializers.Serializer):
     )
 
     def validate_members(self, value):
-        user_ids = list(dict.fromkeys(value))
+        """
+        Ensure that all provided member IDs exist in the database.
+        """
+        user_ids = list(dict.fromkeys(value))  # deduplicate
         existing = set(
             User.objects.filter(id__in=user_ids).values_list("id", flat=True)
         )
@@ -51,6 +62,9 @@ class BoardCreateSerializer(serializers.Serializer):
         return user_ids
 
     def create(self, validated_data):
+        """
+        Create the board and assign optional members.
+        """
         request = self.context["request"]
         owner = request.user
         title = validated_data["title"]
@@ -64,12 +78,17 @@ class BoardCreateSerializer(serializers.Serializer):
                 try:
                     BoardMember.objects.create(board=board, user=u)
                 except IntegrityError:
+                    # Skip duplicates if already assigned
                     pass
 
         return board
 
 
 class UserLiteSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for users, including ID, email and full name.
+    """
+
     fullname = serializers.SerializerMethodField()
 
     class Meta:
@@ -77,6 +96,9 @@ class UserLiteSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "fullname"]
 
     def get_fullname(self, obj):
+        """
+        Return the full name if available, otherwise username.
+        """
         name = (obj.first_name or "") + (
             " " if obj.first_name and obj.last_name else ""
         ) + (obj.last_name or "")
@@ -84,6 +106,10 @@ class UserLiteSerializer(serializers.ModelSerializer):
 
 
 class TaskLiteSerializer(serializers.Serializer):
+    """
+    Lightweight serializer for tasks, including basic fields and user references.
+    """
+
     id = serializers.IntegerField()
     title = serializers.CharField()
     description = serializers.SerializerMethodField()
@@ -118,6 +144,10 @@ class TaskLiteSerializer(serializers.Serializer):
 
 
 class BoardDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer for retrieving a board with owner, members, and tasks.
+    """
+
     owner_id = serializers.IntegerField(read_only=True)
     members = serializers.SerializerMethodField()
     tasks = serializers.SerializerMethodField()
@@ -127,15 +157,26 @@ class BoardDetailSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "owner_id", "members", "tasks"]
 
     def get_members(self, obj):
+        """
+        Return members excluding the owner.
+        """
         qs = obj.members.exclude(pk=obj.owner_id)
         return UserLiteSerializer(qs, many=True).data
 
     def get_tasks(self, obj):
+        """
+        Return lightweight representation of tasks belonging to this board.
+        """
         qs = obj.tasks.all().only("id", "title", "status", "priority")
         return TaskLiteSerializer(qs, many=True).data
 
 
 class BoardPatchSerializer(serializers.Serializer):
+    """
+    Input serializer for partially updating a board.
+    Supports updating title and replacing members.
+    """
+
     title = serializers.CharField(max_length=200, required=False, allow_blank=False)
     members = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
@@ -144,6 +185,9 @@ class BoardPatchSerializer(serializers.Serializer):
     )
 
     def validate_members(self, value):
+        """
+        Ensure that provided member IDs exist.
+        """
         ids = list(dict.fromkeys(value))
         existing = set(User.objects.filter(id__in=ids).values_list("id", flat=True))
         missing = [i for i in ids if i not in existing]
@@ -153,6 +197,11 @@ class BoardPatchSerializer(serializers.Serializer):
 
 
 class BoardUpdateResponseSerializer(serializers.ModelSerializer):
+    """
+    Output serializer for board updates.
+    Returns board data with owner and members in a lightweight format.
+    """
+
     owner_data = serializers.SerializerMethodField()
     members_data = serializers.SerializerMethodField()
 
@@ -171,6 +220,9 @@ class BoardUpdateResponseSerializer(serializers.ModelSerializer):
         return self._user_obj(obj.owner)
 
     def get_members_data(self, obj):
+        """
+        Return members excluding the owner.
+        """
         members = obj.members.exclude(pk=obj.owner_id).only(
             "id", "email", "first_name", "last_name", "username"
         )
