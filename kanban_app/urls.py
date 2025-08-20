@@ -1,9 +1,7 @@
-from django.urls import path, include
-
+from django.urls import include, path
 
 urlpatterns = [
-    path('boards/', include('kanban_app.boards.api.urls')),
-    # path('columns/', include('kanban_app.columns.api.urls')),
-    path('tasks/', include('kanban_app.tasks.api.urls')),
-    path('tasks/', include('kanban_app.comments.api.urls')),
+    path("boards/", include("kanban_app.boards.api.urls")),
+    path("tasks/", include("kanban_app.tasks.api.urls")),
+    path("tasks/", include("kanban_app.comments.api.urls")),
 ]

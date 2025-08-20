@@ -1,5 +1,6 @@
-from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
+
 from ..models import Task
 
 User = get_user_model()
@@ -37,35 +38,56 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         assignee = attrs.get("assignee")
         reviewer = attrs.get("reviewer")
 
-        # Assignee muss Mitglied im Board sein
         if assignee and not board.members.filter(pk=assignee.id).exists():
-            raise serializers.ValidationError("Assignee must be a member of the board.")
+            raise serializers.ValidationError(
+                "Assignee must be a member of the board."
+            )
 
-        # Reviewer muss Mitglied im Board sein
         if reviewer and not board.members.filter(pk=reviewer.id).exists():
-            raise serializers.ValidationError("Reviewer must be a member of the board.")
+            raise serializers.ValidationError(
+                "Reviewer must be a member of the board."
+            )
 
         return attrs
-    
+
 
 class TaskUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = ['title', 'description', 'status', 'priority', 'assignee', 'reviewer', 'due_date']
+        fields = [
+            "title",
+            "description",
+            "status",
+            "priority",
+            "assignee",
+            "reviewer",
+            "due_date",
+        ]
 
     def validate(self, data):
         task = self.instance
 
-        # Board darf nicht verändert werden
-        if 'board' in data and data['board'] != task.board:
-            raise serializers.ValidationError("The board ID cannot be changed.")
+        if "board" in data and data["board"] != task.board:
+            raise serializers.ValidationError(
+                "The board ID cannot be changed."
+            )
 
-        # Assignee muss Mitglied des Boards sein
-        if 'assignee' in data and data['assignee'] and not task.board.members.filter(id=data['assignee'].id).exists():
-            raise serializers.ValidationError("The assignee must be a member of the board.")
+        if (
+            "assignee" in data
+            and data["assignee"]
+            and not task.board.members.filter(id=data["assignee"].id).exists()
+        ):
+            raise serializers.ValidationError(
+                "The assignee must be a member of the board."
+            )
 
-        # Reviewer muss Mitglied des Boards sein
-        if 'reviewer' in data and data['reviewer'] and not task.board.members.filter(id=data['reviewer'].id).exists():
-            raise serializers.ValidationError("The reviewer must be a member of the board.")
+        if (
+            "reviewer" in data
+            and data["reviewer"]
+            and not task.board.members.filter(id=data["reviewer"].id).exists()
+        ):
+            raise serializers.ValidationError(
+                "The reviewer must be a member of the board."
+            )
 
         return data

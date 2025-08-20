@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from kanban_app.comments.models import Comment
 
 
@@ -8,6 +9,7 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ["id", "created_at", "author", "content"]
+
 
 class CommentCreateSerializer(serializers.ModelSerializer):
     author = serializers.SerializerMethodField()
