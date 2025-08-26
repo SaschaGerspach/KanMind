@@ -1,10 +1,13 @@
-from django.db.models import Q, Count, F, Value
+from django.db.models import Count, F, Q, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.generics import (
+    ListCreateAPIView,
+    RetrieveUpdateDestroyAPIView,
+)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -16,6 +19,7 @@ from .serializers import (
     BoardPatchSerializer,
     BoardUpdateResponseSerializer,
 )
+from ...permissions import IsBoardOwner, IsBoardOwnerOrMember
 
 
 class BoardListCreateView(ListCreateAPIView):
@@ -27,7 +31,7 @@ class BoardListCreateView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
-        # Use a different serializer depending on request type
+        # Choose serializer based on request method (create vs. list)
         return BoardCreateSerializer if self.request.method == "POST" else BoardListSerializer
 
     def get_queryset(self):
@@ -45,8 +49,12 @@ class BoardListCreateView(ListCreateAPIView):
         queryset = queryset.annotate(
             members_only=Count("members", distinct=True),
             ticket_count=Count("tasks", distinct=True),
-            tasks_to_do_count=Count("tasks", filter=Q(tasks__status="to_do"), distinct=True),
-            tasks_high_prio_count=Count("tasks", filter=Q(tasks__priority="high"), distinct=True),
+            tasks_to_do_count=Count(
+                "tasks", filter=Q(tasks__status="to_do"), distinct=True
+            ),
+            tasks_high_prio_count=Count(
+                "tasks", filter=Q(tasks__priority="high"), distinct=True
+            ),
         ).annotate(
             member_count=Coalesce(F("members_only"), Value(0))
         )
@@ -67,8 +75,12 @@ class BoardListCreateView(ListCreateAPIView):
             .annotate(
                 members_only=Count("members", distinct=True),
                 ticket_count=Count("tasks", distinct=True),
-                tasks_to_do_count=Count("tasks", filter=Q(tasks__status="to_do"), distinct=True),
-                tasks_high_prio_count=Count("tasks", filter=Q(tasks__priority="high"), distinct=True),
+                tasks_to_do_count=Count(
+                    "tasks", filter=Q(tasks__status="to_do"), distinct=True
+                ),
+                tasks_high_prio_count=Count(
+                    "tasks", filter=Q(tasks__priority="high"), distinct=True
+                ),
             )
             .annotate(member_count=Coalesce(F("members_only"), Value(0)))
             .first()
@@ -83,30 +95,22 @@ class BoardDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
     Access is restricted to board owners and members.
     """
 
-    permission_classes = [IsAuthenticated]
     lookup_url_kwarg = "board_id"
+    queryset = Board.objects.select_related("owner").prefetch_related("members", "tasks")
+    permission_classes = [IsAuthenticated, IsBoardOwnerOrMember]
+
+    def get_permissions(self):
+        # For DELETE requests: tighten to owner-only
+        if self.request.method == "DELETE":
+            return [IsAuthenticated(), IsBoardOwner()]
+        return super().get_permissions()
 
     def get_object(self):
         """
-        Fetch the board by ID, making sure the requesting user
-        is allowed to access it.
+        Fetch the board by ID and run object-level permission checks.
         """
-        board_id = self.kwargs.get(self.lookup_url_kwarg)
-        board = get_object_or_404(
-            Board.objects.select_related("owner").prefetch_related("members", "tasks"),
-            pk=board_id,
-        )
-        user = self.request.user
-
-        # Only the owner can delete the board
-        if self.request.method == "DELETE":
-            if board.owner_id != user.id:
-                raise PermissionDenied("Only the owner can delete this board.")
-            return board
-
-        # For other requests: allow owner and members
-        if not (board.owner_id == user.id or board.members.filter(pk=user.id).exists()):
-            raise PermissionDenied("You do not have access to this board.")
+        board = get_object_or_404(self.queryset, pk=self.kwargs.get(self.lookup_url_kwarg))
+        self.check_object_permissions(self.request, board)
         return board
 
     def get_serializer_class(self):
@@ -143,10 +147,8 @@ class BoardDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         """
-        Delete the board if the requesting user is the owner.
+        Delete the board. Permission narrowed to owner in get_permissions().
         """
         board = self.get_object()
-        if board.owner_id != request.user.id:
-            raise PermissionDenied("Only the owner can delete this board.")
         board.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

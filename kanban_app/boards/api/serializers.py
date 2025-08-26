@@ -62,26 +62,26 @@ class BoardCreateSerializer(serializers.Serializer):
         return user_ids
 
     def create(self, validated_data):
-        """
-        Create the board and assign optional members.
-        """
         request = self.context["request"]
         owner = request.user
         title = validated_data["title"]
-        member_ids = validated_data.get("members", [])
 
         board = Board.objects.create(title=title, owner=owner)
 
+        member_ids = validated_data.get("members", [])
         if member_ids:
-            users = User.objects.filter(id__in=member_ids)
-            for u in users:
-                try:
-                    BoardMember.objects.create(board=board, user=u)
-                except IntegrityError:
-                    # Skip duplicates if already assigned
-                    pass
+            self._add_members(board, member_ids)
 
         return board
+
+    def _add_members(self, board, member_ids):
+        """Helper to add members safely to a board."""
+        users = User.objects.filter(id__in=member_ids)
+        for u in users:
+            try:
+                BoardMember.objects.create(board=board, user=u)
+            except IntegrityError:
+                pass
 
 
 class UserLiteSerializer(serializers.ModelSerializer):
@@ -123,11 +123,11 @@ class TaskLiteSerializer(serializers.Serializer):
     def get_description(self, obj):
         return getattr(obj, "description", None)
 
-    def _user_obj(self, u):
-        if not u:
+    def _user_obj(self, user):
+        if not user:
             return None
-        name = f"{u.first_name or ''} {u.last_name or ''}".strip() or u.username
-        return {"id": u.id, "email": u.email, "fullname": name}
+        name = f"{user.first_name or ''} {user.last_name or ''}".strip() or user.username
+        return {"id": user.id, "email": user.email, "fullname": name}
 
     def get_assignee(self, obj):
         return self._user_obj(getattr(obj, "assignee", None))

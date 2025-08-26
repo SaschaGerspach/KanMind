@@ -33,6 +33,6 @@ class CommentCreateSerializer(serializers.ModelSerializer):
         Returns the author's full name (first + last).
         If no full name exists, fallback to username.
         """
-        u = obj.author
-        full = f"{(u.first_name or '').strip()} {(u.last_name or '').strip()}".strip()
-        return full or u.username
+        user = obj.author
+        full = f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip()
+        return full or user.username

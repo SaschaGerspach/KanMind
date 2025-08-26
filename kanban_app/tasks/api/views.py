@@ -4,6 +4,13 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticated
 
+from ...permissions import (
+    IsBoardOwner,
+    IsBoardMember,
+    IsBoardOwnerOrMember,
+    CanCreateTaskOnBoard,
+    CanDeleteTaskIfCreatorOrBoardOwner,
+)
 from ..models import Task
 from ...boards.models import Board
 from .serializers import TaskCreateSerializer, TaskUpdateSerializer
@@ -11,31 +18,30 @@ from .serializers import TaskCreateSerializer, TaskUpdateSerializer
 
 class TaskCreateView(generics.CreateAPIView):
     """
-    API view for creating a new task within a board.
-    Only board members or the board owner can create tasks.
+    Create a new task in a board.
+    Only board members or the board owner are allowed.
     """
     queryset = Task.objects.all()
     serializer_class = TaskCreateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanCreateTaskOnBoard]
 
     def perform_create(self, serializer):
         board = serializer.validated_data["board"]
         user = self.request.user
 
-        # Check if the user is either the board owner or a board member
-        if not (board.owner_id == user.id or board.members.filter(pk=user.id).exists()):
+        # Additional runtime check; permission above guards this pre-object.
+        if not (
+            board.owner_id == user.id or board.members.filter(pk=user.id).exists()
+        ):
             raise PermissionDenied(
                 "You must be a member of this board to create a task."
             )
 
-        # Save the task with the current user as creator
         serializer.save(board=board, created_by=user)
 
 
 class AssignedToMeTaskListView(generics.ListAPIView):
-    """
-    API view that lists all tasks assigned to the current user.
-    """
+    """List all tasks assigned to the current user."""
     serializer_class = TaskCreateSerializer
     permission_classes = [IsAuthenticated]
 
@@ -44,9 +50,7 @@ class AssignedToMeTaskListView(generics.ListAPIView):
 
 
 class ReviewingTaskListView(generics.ListAPIView):
-    """
-    API view that lists all tasks where the current user is set as reviewer.
-    """
+    """List all tasks where the current user is the reviewer."""
     serializer_class = TaskCreateSerializer
     permission_classes = [IsAuthenticated]
 
@@ -55,49 +59,45 @@ class ReviewingTaskListView(generics.ListAPIView):
         return Task.objects.filter(reviewer=user)
 
 
-class TaskDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
+class TaskDetailUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     """
-    API view for retrieving, updating (PATCH), or deleting a single task.
-    Access is restricted to board members or the board owner.
+    Retrieve, update (PATCH), or delete a single task.
+
+    Method-specific permissions:
+    - GET:   board owner OR member
+    - PATCH: board owner OR member (adjust here if only owner may edit)
+    - DELETE: board owner OR task creator (extra rule handled by permission)
     """
-    permission_classes = [permissions.IsAuthenticated]
     lookup_url_kwarg = "task_id"
     queryset = Task.objects.all()
 
+    def get_permissions(self):
+        m = self.request.method
+        if m == "GET":
+            perms = [IsAuthenticated, IsBoardOwnerOrMember]
+        elif m in ("PUT", "PATCH"):
+            perms = [IsAuthenticated, IsBoardOwnerOrMember]  # or IsBoardOwner
+        elif m == "DELETE":
+            perms = [
+                IsAuthenticated,
+                IsBoardOwnerOrMember,
+                CanDeleteTaskIfCreatorOrBoardOwner,
+            ]
+        else:
+            perms = [IsAuthenticated]
+        return [p() for p in perms]
+
     def get_serializer_class(self):
-        # Use a different serializer when updating tasks
-        if self.request.method.upper() == "PATCH":
-            return TaskUpdateSerializer
-        return TaskCreateSerializer
+        return (
+            TaskUpdateSerializer
+            if self.request.method.upper() == "PATCH"
+            else TaskCreateSerializer
+        )
 
     def get_object(self):
-        """
-        Fetch the task and ensure the requesting user has access
-        (must be board owner or board member).
-        """
-        task = get_object_or_404(Task, id=self.kwargs["task_id"])
-        user = self.request.user
-        board = task.board
-
-        is_owner = board.owner_id == user.id
-        is_member = board.members.filter(id=user.id).exists()
-
-        if not (is_owner or is_member):
-            raise PermissionDenied(
-                "You are not a member of this board and cannot access this task."
-            )
-        return task
+        # Object-level permissions are checked after retrieving the object.
+        return get_object_or_404(Task, id=self.kwargs["task_id"])
 
     def perform_destroy(self, instance: Task):
-        """
-        Delete a task only if the requesting user is either:
-        - the creator of the task, or
-        - the owner of the board.
-        """
-        user = self.request.user
-        board_owner = instance.board.owner
-        if instance.created_by != user and board_owner != user:
-            raise PermissionDenied(
-                "Only the task creator or the board owner can delete this task."
-            )
+        # Special delete rule is enforced by CanDeleteTaskIfCreatorOrBoardOwner.
         instance.delete()
