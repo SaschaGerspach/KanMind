@@ -14,7 +14,7 @@ from ...permissions import (
 from ..models import Task
 from ...boards.models import Board
 from .serializers import TaskCreateSerializer, TaskUpdateSerializer
-
+from .permissions import CanUpdateTaskOnBoard
 
 class TaskCreateView(generics.CreateAPIView):
     """
@@ -37,7 +37,9 @@ class TaskCreateView(generics.CreateAPIView):
                 "You must be a member of this board to create a task."
             )
 
-        serializer.save(board=board, created_by=user)
+        obj = serializer.save(board=board, created_by=user)
+        obj = Task.objects.select_related("assignee", "reviewer").get(pk=obj.pk)
+        self.instance = obj
 
 
 class AssignedToMeTaskListView(generics.ListAPIView):
@@ -80,7 +82,6 @@ class TaskDetailUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
         elif m == "DELETE":
             perms = [
                 IsAuthenticated,
-                IsBoardOwnerOrMember,
                 CanDeleteTaskIfCreatorOrBoardOwner,
             ]
         else:
@@ -96,7 +97,13 @@ class TaskDetailUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         # Object-level permissions are checked after retrieving the object.
-        return get_object_or_404(Task, id=self.kwargs["task_id"])
+        obj = get_object_or_404(
+            Task.objects.select_related("board", "created_by"),
+            id=self.kwargs["task_id"],
+            )
+        self.check_object_permissions(self.request, obj)
+        return obj
+
 
     def perform_destroy(self, instance: Task):
         # Special delete rule is enforced by CanDeleteTaskIfCreatorOrBoardOwner.

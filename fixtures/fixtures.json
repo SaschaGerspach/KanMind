@@ -1,0 +1,22 @@
+[
+  { "model": "auth.user", "pk": 2, "fields": { "username": "alice", "is_active": true, "is_staff": false, "is_superuser": false, "password": "" } },
+  { "model": "auth.user", "pk": 3, "fields": { "username": "bob",   "is_active": true, "is_staff": false, "is_superuser": false, "password": "" } },
+  { "model": "auth.user", "pk": 4, "fields": { "username": "carol", "is_active": true, "is_staff": false, "is_superuser": false, "password": "" } },
+
+  { "model": "kanban_app.board", "pk": 1, "fields": { "title": "Demo Board A", "owner": 2, "created_at": "2025-08-27T10:00:00Z" } },
+  { "model": "kanban_app.board", "pk": 2, "fields": { "title": "Demo Board B", "owner": 3, "created_at": "2025-08-27T10:05:00Z" } },
+
+  { "model": "kanban_app.task", "pk": 1, "fields": { "title": "Set up project",        "board": 1, "assignee": 2, "created_at": "2025-08-27T10:10:00Z" } },
+  { "model": "kanban_app.task", "pk": 2, "fields": { "title": "Create first endpoint", "board": 1, "assignee": 3, "created_at": "2025-08-27T10:12:00Z" } },
+  { "model": "kanban_app.task", "pk": 3, "fields": { "title": "Write serializers",     "board": 1, "assignee": 4, "created_at": "2025-08-27T10:14:00Z" } },
+  { "model": "kanban_app.task", "pk": 4, "fields": { "title": "Implement permissions", "board": 2, "assignee": 3, "created_at": "2025-08-27T10:16:00Z" } },
+  { "model": "kanban_app.task", "pk": 5, "fields": { "title": "Pagination & filters",  "board": 2, "assignee": 4, "created_at": "2025-08-27T10:18:00Z" } },
+  { "model": "kanban_app.task", "pk": 6, "fields": { "title": "Polish README",         "board": 2, "assignee": 2, "created_at": "2025-08-27T10:20:00Z" } },
+
+  { "model": "kanban_app.comment", "pk": 1, "fields": { "task": 1, "author": 2, "content": "Init repo and base settings done.",          "created_at": "2025-08-27T10:22:00Z" } },
+  { "model": "kanban_app.comment", "pk": 2, "fields": { "task": 2, "author": 3, "content": "Endpoint tested in Postman, 200 OK.",        "created_at": "2025-08-27T10:23:00Z" } },
+  { "model": "kanban_app.comment", "pk": 3, "fields": { "task": 3, "author": 4, "content": "Serializer fields explicit, looks good.",    "created_at": "2025-08-27T10:24:00Z" } },
+  { "model": "kanban_app.comment", "pk": 4, "fields": { "task": 4, "author": 3, "content": "Owner permission applied to updates.",       "created_at": "2025-08-27T10:25:00Z" } },
+  { "model": "kanban_app.comment", "pk": 5, "fields": { "task": 5, "author": 4, "content": "Added ordering by created_at.",              "created_at": "2025-08-27T10:26:00Z" } },
+  { "model": "kanban_app.comment", "pk": 6, "fields": { "task": 6, "author": 2, "content": "README polish complete.",                    "created_at": "2025-08-27T10:27:00Z" } }
+]

@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Any, Dict
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+from django.db.models import Count 
 from rest_framework import serializers
 
 from ..models import Board, BoardMember
@@ -167,7 +168,12 @@ class BoardDetailSerializer(serializers.ModelSerializer):
         """
         Return lightweight representation of tasks belonging to this board.
         """
-        qs = obj.tasks.all().only("id", "title", "status", "priority")
+        qs = (
+            obj.tasks.all()
+            .only("id", "title", "status", "priority", "assignee_id", "reviewer_id")
+            .select_related("assignee", "reviewer")
+            .annotate(comments_count=Count("comments"))
+        )
         return TaskLiteSerializer(qs, many=True).data
 
 
@@ -189,6 +195,9 @@ class BoardPatchSerializer(serializers.Serializer):
         Ensure that provided member IDs exist.
         """
         ids = list(dict.fromkeys(value))
+        board = self.context.get("board")  
+        if board and board.owner_id in ids:
+            ids.remove(board.owner_id)
         existing = set(User.objects.filter(id__in=ids).values_list("id", flat=True))
         missing = [i for i in ids if i not in existing]
         if missing:
@@ -223,7 +232,7 @@ class BoardUpdateResponseSerializer(serializers.ModelSerializer):
         """
         Return members excluding the owner.
         """
-        members = obj.members.exclude(pk=obj.owner_id).only(
-            "id", "email", "first_name", "last_name", "username"
-        )
+        members = obj.members.all().only(
+        "id", "email", "first_name", "last_name", "username"
+    )
         return [self._user_obj(u) for u in members]

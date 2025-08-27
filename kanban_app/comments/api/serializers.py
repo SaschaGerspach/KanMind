@@ -8,11 +8,18 @@ class CommentSerializer(serializers.ModelSerializer):
     Serializer for reading comment data.
     Includes the author's full name as a read-only field.
     """
-    author = serializers.CharField(source="author.full_name", read_only=True)
+    author = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
         fields = ["id", "created_at", "author", "content"]
+
+    def get_author(self, obj):
+        u = getattr(obj, "author", None)
+        if not u:
+            return None
+        full = f"{(u.first_name or '').strip()} {(u.last_name or '').strip()}".strip()
+        return full or u.username
 
 
 class CommentCreateSerializer(serializers.ModelSerializer):

@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from kanban_app.boards.api.serializers import UserLiteSerializer
 
 from ..models import Task
 
@@ -12,6 +13,16 @@ class TaskCreateSerializer(serializers.ModelSerializer):
     Includes validation for status, priority, and board membership
     of the assignee and reviewer.
     """
+    comments_count = serializers.SerializerMethodField(read_only=True)
+    assignee = UserLiteSerializer(read_only=True)
+    reviewer = UserLiteSerializer(read_only=True)
+
+    assignee_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="assignee", write_only=True, required=False
+    )
+    reviewer_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="reviewer", write_only=True, required=False
+    )
 
     class Meta:
         model = Task
@@ -24,8 +35,15 @@ class TaskCreateSerializer(serializers.ModelSerializer):
             "priority",
             "assignee",
             "reviewer",
+            "assignee_id",
+            "reviewer_id",
             "due_date",
+            "comments_count"
         ]
+
+    def get_comments_count(self, obj):
+        # Falls dein related_name anders heißt, hier anpassen
+        return obj.comments.count()
 
     def validate_status(self, value):
         """
@@ -74,16 +92,28 @@ class TaskUpdateSerializer(serializers.ModelSerializer):
     Prevents board reassignment and enforces that assignee/reviewer
     must remain members of the same board.
     """
+    assignee = UserLiteSerializer(read_only=True)
+    reviewer = UserLiteSerializer(read_only=True)
+
+    assignee_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="assignee", write_only=True, required=False
+    )
+    reviewer_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="reviewer", write_only=True, required=False
+    )
 
     class Meta:
         model = Task
         fields = [
+            "id",
             "title",
             "description",
             "status",
             "priority",
             "assignee",
             "reviewer",
+            "assignee_id",
+            "reviewer_id",
             "due_date",
         ]
 

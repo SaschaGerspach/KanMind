@@ -1,6 +1,7 @@
 from django.db.models import Count, F, Q, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
+from django.contrib.auth import get_user_model
 
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
@@ -136,11 +137,13 @@ class BoardDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
 
         # Update members if provided
         if "members" in data:
-            from django.contrib.auth import get_user_model
-
             User = get_user_model()
             users = list(User.objects.filter(id__in=data["members"]))
             board.members.set(users)
+
+        
+            if getattr(board, "_prefetched_objects_cache", None):
+                board._prefetched_objects_cache.pop("members", None)
 
         out = BoardUpdateResponseSerializer(board)
         return Response(out.data, status=status.HTTP_200_OK)
