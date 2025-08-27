@@ -12,10 +12,20 @@ from rest_framework.permissions import IsAuthenticated
 
 User = get_user_model()
 
+
 class RegistrationView(APIView):
+    """
+    Register a new user account and return an auth token.
+    Public endpoint (no authentication required).
+    """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """
+        Validate incoming payload with RegistrationSerializer,
+        create the user, and issue a token.
+        """
         serializer = RegistrationSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -25,24 +35,32 @@ class RegistrationView(APIView):
 
         data = {
             "token": token.key,
-            "fullname": user.first_name,  # kommt aus dem Requestfeld „fullname“
+            "fullname": user.first_name,  # value originally captured from "fullname" field in request
             "email": user.email,
-            "user_id": user.id
+            "user_id": user.id,
         }
         return Response(data, status=status.HTTP_201_CREATED)
 
 
 class LoginView(APIView):
+    """
+    Email/password login with basic inline validation.
+    Applies scoped rate limiting under scope 'login'.
+    """
 
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'login'
 
     def post(self, request):
+        """
+        Resolve user by email (case-insensitive), verify password,
+        and return (create if needed) an auth token.
+        """
         email = request.data.get('email', '')
         password = request.data.get('password', '')
 
-        # E-Mail case-insensitiv suchen
+        # Case-insensitive email match
         try:
             user = User.objects.get(email__iexact=email)
         except User.DoesNotExist:
@@ -56,14 +74,23 @@ class LoginView(APIView):
             "token": token.key,
             "fullname": user.first_name,
             "email": user.email,
-            "user_id": user.id
+            "user_id": user.id,
         }
         return Response(data, status=status.HTTP_200_OK)
-    
+
+
 class LoginView(APIView):
+    """
+    Email/password login using LoginSerializer for validation.
+    Public endpoint.
+    """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """
+        Validate credentials via LoginSerializer, return/create token on success.
+        """
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -73,29 +100,37 @@ class LoginView(APIView):
 
         return Response({
             "token": token.key,
-            "fullname": user.first_name,   # in der Registration als fullname gespeichert
+            "fullname": user.first_name,   # stored during registration from "fullname" input
             "email": user.email,
             "user_id": user.id
         }, status=status.HTTP_200_OK)
-    
 
 
 class EmailCheckView(APIView):
+    """
+    Authenticated endpoint to verify whether an email exists.
+    Returns a minimal user representation when found.
+    """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # 1) E-Mail aus Query
+        """
+        Validate the 'email' query parameter (presence + format),
+        perform a case-insensitive lookup, and return id/email/fullname if found.
+        """
+        # 1) Read and normalize query parameter
         raw_email = request.query_params.get("email", "")
         email = raw_email.strip()
 
-        # 2) Validierung: vorhanden + Format
+        # 2) Validate presence and format
         if not email:
             return Response(
                 {"detail": "Query parameter 'email' is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Nutzen DRF-Validator für E-Mail-Format
+        # Use DRF's EmailField for syntactic validation
         try:
             serializers.EmailField().run_validation(email)
         except serializers.ValidationError:
@@ -104,7 +139,7 @@ class EmailCheckView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 3) Lookup (case-insensitive)
+        # 3) Case-insensitive lookup (narrow selection to required fields)
         user = User.objects.filter(email__iexact=email).only(
             "id", "email", "first_name", "last_name", "username"
         ).first()
@@ -115,7 +150,7 @@ class EmailCheckView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # 4) fullname bauen
+        # 4) Build display name (fallback to username)
         fullname = f"{user.first_name} {user.last_name}".strip() or user.username
 
         return Response(
